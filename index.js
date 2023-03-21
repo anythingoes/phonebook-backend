@@ -1,7 +1,9 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
 const morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person");
 
 app.use(cors());
 app.use(express.json());
@@ -55,7 +57,9 @@ app.get("/api/info", (request, response) => {
 });
 
 app.get("/api/persons", (request, response) => {
-  response.json(persons);
+  Person.find({}).then((persons) => {
+    response.json(persons);
+  });
 });
 
 app.get("/api/persons/:id", (request, response) => {
@@ -85,23 +89,32 @@ app.post("/api/persons", (request, response) => {
     });
   }
 
-  const duplicate = persons.find(
-    (personOld) => personOld.name.toLowerCase() === person.name.toLowerCase()
-  );
+  const newPerson = new Person({
+    name: person.name,
+    number: person.number,
+  });
 
-  if (duplicate) {
-    return response.status(400).json({
-      error: "person already in phonebook",
-    });
-  }
+  newPerson.save().then((savedPerson) => {
+    response.json(savedPerson);
+  });
 
-  person.id = getRandomId();
+  // const duplicate = persons.find(
+  //   (personOld) => personOld.name.toLowerCase() === person.name.toLowerCase()
+  // );
 
-  persons = persons.concat(person);
-  response.json(person);
+  // if (duplicate) {
+  //   return response.status(400).json({
+  //     error: "person already in phonebook",
+  //   });
+  // }
+
+  // person.id = getRandomId();
+
+  // persons = persons.concat(person);
+  // response.json(person);
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
