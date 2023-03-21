@@ -22,7 +22,7 @@ const personSchema = new mongoose.Schema({
     required: [true, "Name is required"],
   },
   number: {
-    type: Number,
+    type: String,
     validate: {
       validator: function (num) {
         return /^\d{8,}|^\d{2,3}-\d{6,}/.test(num);
