@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 mongoose.set("strictQuery", false);
 
 const url = process.env.MOGODB_URI;
+console.log(url);
 
 console.log("connecting to", url);
 
@@ -15,8 +16,21 @@ mongoose
   });
 
 const personSchema = new mongoose.Schema({
-  name: String,
-  number: Number,
+  name: {
+    type: String,
+    minLength: [3, "name should be longer than 3 characters"],
+    required: [true, "Name is required"],
+  },
+  number: {
+    type: Number,
+    validate: {
+      validator: function (num) {
+        return /^\d{8,}|^\d{2,3}-\d{6,}/.test(num);
+      },
+      message: (props) => `${props.value} is not a valid phone number`,
+    },
+    required: [true, "Phone number is required"],
+  },
 });
 
 personSchema.set("toJSON", {

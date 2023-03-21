@@ -62,25 +62,28 @@ app.get("/api/persons", (request, response) => {
   });
 });
 
-// app.get("/api/persons/:id", (request, response) => {
-//   const id = Number(request.params.id);
-//   const person = persons.find((person) => person.id === id);
+app.get("/api/persons/:id", (request, response, next) => {
+  const id = request.params.id;
+  Person.findById(id)
+    .then((person) => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
+});
 
-//   if (person) {
-//     response.json(person);
-//   } else {
-//     response.status(404).end();
-//   }
-// });
+app.delete("/api/persons/:id", (request, response) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then((result) => {
+      response.status(204).end();
+    })
+    .catch((error) => next(error));
+});
 
-// app.delete("/api/persons/:id", (request, response) => {
-//   const id = Number(request.params.id);
-
-//   persons = persons.filter((person) => person.id !== id);
-//   response.status(204).end();
-// });
-
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   const person = request.body;
 
   if (!(person.name && person.number)) {
@@ -89,30 +92,68 @@ app.post("/api/persons", (request, response) => {
     });
   }
 
-  const newPerson = new Person({
-    name: person.name,
-    number: person.number,
+  Person.find({ name: person.name }).then((duplicate) => {
+    if (duplicate.length !== 0) {
+      console.log(duplicate);
+      return response.status(400).json({
+        error: "person already in phonebook",
+      });
+    } else {
+      const newPerson = new Person({
+        name: person.name,
+        number: person.number,
+      });
+
+      newPerson
+        .save()
+        .then((savedPerson) => {
+          response.json(savedPerson);
+        })
+        .catch((error) => {
+          console.log(error.errors);
+          next(error);
+        });
+    }
   });
-
-  newPerson.save().then((savedPerson) => {
-    response.json(savedPerson);
-  });
-
-  // const duplicate = persons.find(
-  //   (personOld) => personOld.name.toLowerCase() === person.name.toLowerCase()
-  // );
-
-  // if (duplicate) {
-  //   return response.status(400).json({
-  //     error: "person already in phonebook",
-  //   });
-  // }
 
   // person.id = getRandomId();
 
   // persons = persons.concat(person);
   // response.json(person);
 });
+
+app.put("/api/persons/:id", (request, response) => {
+  const body = request.body;
+  const person = {
+    name: body.name,
+    number: body.number,
+  };
+
+  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+    .then((updatedPerson) => {
+      response.json(updatedPerson);
+    })
+    .catch((error) => next(error));
+});
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+app.use(unknownEndpoint);
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.message);
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformed id" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).send({ error: error.message });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
