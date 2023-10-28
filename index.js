@@ -14,6 +14,7 @@ app.use(
 );
 
 app.use(cors());
+app.use(express.static("dist")); //middleware used to serve the static index.html file from the dist directory which containts frontend react code
 
 let persons = [
   {
