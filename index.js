@@ -1,20 +1,20 @@
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
 const app = express();
-
-app.use(express.json());
+const Person = require("./models/person");
 
 morgan.token("body", (req, res) => {
   return JSON.stringify(req.body);
 });
 
+app.use(express.static("dist")); //middleware used to serve the static index.html file from the dist directory which containts frontend react code
+app.use(express.json());
 app.use(
   morgan(":method :url :status :res[content-length] - :response-time ms :body")
 );
-
 app.use(cors());
-app.use(express.static("dist")); //middleware used to serve the static index.html file from the dist directory which containts frontend react code
 
 let persons = [
   {
@@ -44,7 +44,7 @@ const generateRandomId = () => {
 };
 
 app.get("/api/persons/", (req, res) => {
-  res.json(persons);
+  Person.find({}).then((result) => res.json(result));
 });
 
 app.get("/info/", (req, res) => {
@@ -56,22 +56,22 @@ app.get("/info/", (req, res) => {
   );
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const person = persons.find((p) => p.id === id);
-
-  if (!person) {
-    return res.status(404).end();
-  }
-
-  res.json(person);
+app.get("/api/persons/:id", (req, res, next) => {
+  Person.findById(req.params.id)
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
 app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((p) => p.id !== id);
-
-  res.status(204).end();
+  Person.findByIdAndDelete(req.params.id).then((result) =>
+    res.status(204).end()
+  );
 });
 
 app.post("/api/persons", (req, res) => {
@@ -83,27 +83,59 @@ app.post("/api/persons", (req, res) => {
     });
   }
 
-  const duplicatePerson = persons.find(
-    (person) => person.name.toLowerCase() === body.name.toLowerCase()
-  );
+  // const duplicatePerson = persons.find(
+  //   (person) => person.name.toLowerCase() === body.name.toLowerCase()
+  // );
 
-  if (duplicatePerson) {
-    return res.status(400).json({
-      error: "name already in phonebook",
-    });
-  }
+  // if (duplicatePerson) {
+  //   return res.status(400).json({
+  //     error: "name already in phonebook",
+  //   });
+  // }
 
-  const newPerson = {
+  const newPerson = new Person({
     name: body.name,
     number: body.number,
-    id: generateRandomId(),
-  };
+  });
 
-  persons = persons.concat(newPerson);
-  res.json(newPerson);
+  newPerson.save().then((result) => res.json(result));
 });
 
-const PORT = process.env.PORT || 3001;
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+  const updatedPerson = {
+    name: body.name,
+    number: body.number,
+  };
+
+  Person.findByIdAndUpdate(req.params.id, updatedPerson, { new: true })
+    .then((returnedPerson) => {
+      if (returnedPerson) {
+        res.json(returnedPerson);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
+});
+
+const unknownEndpoint = (req, res) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+app.use(unknownEndpoint);
+
+const errorHandler = (error, req, res, next) => {
+  console.log(error.message);
+
+  if (error.name === "CastError") {
+    return res.status(404).send({ error: "malformatted id" });
+  }
+};
+
+app.use(errorHandler);
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
